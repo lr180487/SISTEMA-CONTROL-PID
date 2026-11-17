@@ -1,0 +1,3 @@
+# Instalación reproducible por rangos de compatibilidad.
+# Fuente canónica de dependencias: pyproject.toml
+-e .[dev]

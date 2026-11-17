@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "s-c-pid"
+version = "1.2.0"
+description = "SCADA de control PI + Feedforward para banco de flotación de tres celdas con Siemens S7-1200 y OPC UA"
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+authors = [
+  { name = "Proyecto S_C_PID" }
+]
+keywords = [
+  "SCADA",
+  "PID",
+  "PI",
+  "Feedforward",
+  "OPC-UA",
+  "Siemens",
+  "S7-1200",
+  "FastAPI",
+  "flotation"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Web Environment",
+  "Framework :: FastAPI",
+  "Intended Audience :: Education",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering"
+]
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "uvicorn[standard]>=0.30,<1.0",
+  "pydantic>=2.7,<3.0",
+  "asyncua>=1.1,<2.0",
+  "python-snap7>=2.0,<4.0",
+  "python-dotenv>=1.0,<2.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<9.0",
+  "httpx>=0.27,<1.0",
+  "ruff>=0.6,<1.0"
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+exclude = ["tests*", "tools*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+  "frontend/vendor",
+  "data",
+  "build",
+  "dist"
+]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]

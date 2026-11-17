@@ -1,0 +1,181 @@
+// =============================================================================
+// PROYECTO: Control de Nivel en Banco de Flotación de 3 Celdas (PI + Feedforward)
+// CPU OBJETIVO: Siemens S7-1200 (CPU 1214C / 1215C DC/DC/DC, Firmware >= V4.4)
+// REFERENCIA: Quintanilla et al. (2023), MethodsX 10, 102081.
+// BLOQUE: FB_LevelControl_PI_FF (Llamar desde OB30 Cyclic Interrupt cada 500 ms)
+// =============================================================================
+
+DATA_BLOCK "DB100_FlotationSCADA"
+{ S7_Optimized_Access := 'FALSE' } // Desactivar acceso optimizado para comunicación Snap7
+VERSION : 0.1
+   STRUCT
+      Q_Feed_LPM  : Real := 22.0;   // Offset 0.0  - Flujómetro electromagnético alimentación [L/min]
+      C1_PV_mm    : Real := 330.0;  // Offset 4.0  - Nivel ultrasónico Celda 1 [mm]
+      C1_SP_mm    : Real := 330.0;  // Offset 8.0  - Setpoint Celda 1 [mm]
+      C1_Pump_RPM : Real := 171.0;  // Offset 12.0 - Consigna bomba B-1 (SP) [RPM]
+      C1_Kp       : Real := -6.8;   // Offset 16.0 - Ganancia proporcional C-1 [RPM/mm]
+      C1_Ki       : Real := -0.62;  // Offset 20.0 - Ganancia integral C-1 [RPM/(mm*s)]
+      C1_Kff      : Real := 1.00;   // Offset 24.0 - Ganancia Feedforward C-1 [-]
+      C2_PV_mm    : Real := 320.0;  // Offset 28.0 - Nivel ultrasónico Celda 2 [mm]
+      C2_SP_mm    : Real := 320.0;  // Offset 32.0 - Setpoint Celda 2 [mm]
+      C2_Pump_RPM : Real := 166.0;  // Offset 36.0 - Consigna bomba B-2 (SP) [RPM]
+      C2_Kp       : Real := -6.5;   // Offset 40.0
+      C2_Ki       : Real := -0.58;  // Offset 44.0
+      C2_Kff      : Real := 1.00;   // Offset 48.0
+      C3_PV_mm    : Real := 310.0;  // Offset 52.0 - Nivel ultrasónico Celda 3 [mm]
+      C3_SP_mm    : Real := 310.0;  // Offset 56.0 - Setpoint Celda 3 [mm]
+      C3_Pump_RPM : Real := 161.0;  // Offset 60.0 - Consigna bomba B-3 (SP) [RPM]
+      C3_Kp       : Real := -6.2;   // Offset 64.0
+      C3_Ki       : Real := -0.55;  // Offset 68.0
+      C3_Kff      : Real := 1.00;   // Offset 72.0
+      C1_AutoMode : Bool := TRUE;   // Offset 76.0
+      C1_FF_Enable: Bool := TRUE;   // Offset 76.1
+      C2_AutoMode : Bool := TRUE;   // Offset 76.2
+      C2_FF_Enable: Bool := TRUE;   // Offset 76.3
+      C3_AutoMode : Bool := TRUE;   // Offset 76.4
+      C3_FF_Enable: Bool := TRUE;   // Offset 76.5
+      _Reserved_77_79 : Array[0..2] of Byte; // Alineación explícita para DBD80
+      // DB100 v2: RPM real, salida calculada y diagnóstico. No mapear a I/Q físicos sin validar hardware.
+      C1_Pump_RPM_PV : Real := 0.0; // DBD80 - Realimentación RPM B-1
+      C2_Pump_RPM_PV : Real := 0.0; // DBD84 - Realimentación RPM B-2
+      C3_Pump_RPM_PV : Real := 0.0; // DBD88 - Realimentación RPM B-3
+      C1_Output_RPM  : Real := 0.0; // DBD92 - Salida PI+FF B-1
+      C2_Output_RPM  : Real := 0.0; // DBD96 - Salida PI+FF B-2
+      C3_Output_RPM  : Real := 0.0; // DBD100 - Salida PI+FF B-3
+      PLC_CycleCounter : DWord := 0; // DBD104
+      PLC_Heartbeat : Bool := FALSE; // DBX108.0
+      PLC_DataValid : Bool := FALSE; // DBX108.1
+      PLC_Fault : Bool := FALSE; // DBX108.2
+      _Reserved_109_111 : Array[0..2] of Byte; // Alineación explícita para DBD112
+      DB_Version : DWord := 2; // DBD112
+      C1_Output_AQ : Int := 0; // DBW116 - 0..27648 (no enlazar a %QW hasta identificar módulo)
+      C2_Output_AQ : Int := 0; // DBW118
+      C3_Output_AQ : Int := 0; // DBW120
+   END_STRUCT;
+BEGIN
+END_DATA_BLOCK
+
+
+FUNCTION_BLOCK "FB_LevelControl_PI_FF"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 1.0
+   VAR_INPUT
+      SP_mm           : Real;   // Consigna de nivel [mm]
+      PV_mm           : Real;   // Nivel de pulpa medido [mm]
+      Q_In_Measured   : Real;   // Perturbación medida de entrada [L/min]
+      Q_Conc_Est      : Real := 0.6; // Estimación rebose concentrado [L/min]
+      Kp              : Real := -6.5;
+      Ki              : Real := -0.58;
+      Kff             : Real := 1.0;
+      Pump_Alpha      : Real := 0.125; // Pendiente calibración bomba [L/(min*RPM)]
+      Ts_sec          : Real := 0.5;   // Periodo OB30 = 0.5 s
+      Auto_Mode       : Bool := TRUE;
+      FF_Enable       : Bool := TRUE;
+      Manual_RPM      : Real := 165.0;
+      RPM_Min         : Real := 0.0;
+      RPM_Max         : Real := 350.0;
+   END_VAR
+
+   VAR_OUTPUT
+      Out_RPM         : Real;   // Salida total hacia bomba peristáltica [RPM]
+      Out_Analog_0_27648 : Int; // Palabra analógica SM 1232 AQ (4-20 mA / 0-10 V)
+      Error_mm        : Real;
+      RPM_PI_Term     : Real;
+      RPM_FF_Term     : Real;
+   END_VAR
+
+   VAR
+      Integral_Sum    : Real := 0.0;
+      Last_Auto       : Bool := TRUE;
+      Last_FF         : Bool := TRUE;
+      Last_RPM        : Real := 165.0;
+      Cand_Integral   : Real;
+      P_Term          : Real;
+      Net_Flow        : Real;
+      Unclamped_RPM   : Real;
+   END_VAR
+
+BEGIN
+   // 1. Error de nivel (Acción inversa por bombeo de descarga: Kp < 0, Ki < 0)
+   #Error_mm := #SP_mm - #PV_mm;
+
+   // 2. Compensación Feedforward (Prealimentación por perturbación de caudal)
+   #Net_Flow := #Q_In_Measured - #Q_Conc_Est;
+   IF #Net_Flow < 0.0 THEN
+      #Net_Flow := 0.0;
+   END_IF;
+
+   IF #FF_Enable AND (#Pump_Alpha > 0.001) THEN
+      #RPM_FF_Term := (#Net_Flow / #Pump_Alpha) * #Kff;
+   ELSE
+      #RPM_FF_Term := 0.0;
+   END_IF;
+
+   // 3. Modo MANUAL con seguimiento integral (Bumpless Transfer)
+   IF NOT #Auto_Mode THEN
+      #Out_RPM := LIMIT(MN := #RPM_Min, IN := #Manual_RPM, MX := #RPM_Max);
+      #P_Term := #Kp * #Error_mm;
+      #Integral_Sum := #Out_RPM - #RPM_FF_Term - #P_Term;
+      #RPM_PI_Term := #Out_RPM - #RPM_FF_Term;
+   ELSE
+      // Conmutación suave si cambia estado de Feedforward en caliente
+      IF (#FF_Enable <> #Last_FF) AND #Last_Auto THEN
+         #P_Term := #Kp * #Error_mm;
+         #Integral_Sum := #Last_RPM - #RPM_FF_Term - #P_Term;
+      END_IF;
+
+      #P_Term := #Kp * #Error_mm;
+      #Cand_Integral := #Integral_Sum + (#Ki * #Error_mm * #Ts_sec);
+      #Unclamped_RPM := #P_Term + #Cand_Integral + #RPM_FF_Term;
+
+      // 4. Anti-Windup condicional frente a límites físicos de bomba peristáltica
+      IF #Unclamped_RPM > #RPM_Max THEN
+         #Out_RPM := #RPM_Max;
+         IF (#Ki * #Error_mm) < 0.0 THEN
+            #Integral_Sum := #Cand_Integral;
+         END_IF;
+      ELSIF #Unclamped_RPM < #RPM_Min THEN
+         #Out_RPM := #RPM_Min;
+         IF (#Ki * #Error_mm) > 0.0 THEN
+            #Integral_Sum := #Cand_Integral;
+         END_IF;
+      ELSE
+         #Out_RPM := #Unclamped_RPM;
+         #Integral_Sum := #Cand_Integral;
+      END_IF;
+
+      #RPM_PI_Term := #Out_RPM - #RPM_FF_Term;
+   END_IF;
+
+   #Last_Auto := #Auto_Mode;
+   #Last_FF := #FF_Enable;
+   #Last_RPM := #Out_RPM;
+
+   // 5. Escalado normalizado Siemens S7-1200 (NORM_X + SCALE_X: 0..350 RPM -> 0..27648 cuentas AQ)
+   #Out_Analog_0_27648 := REAL_TO_INT((#Out_RPM / #RPM_Max) * 27648.0);
+END_FUNCTION_BLOCK
+
+
+// =============================================================================
+// FB de integración de referencia para OB30 (500 ms).
+// Los PV/caudales deben venir de tags ya escalados y validados en TIA Portal.
+// NO asigna direcciones %IW/%QW: el hardware analógico aún no está identificado.
+// Instanciar en OB30 y conectar las señales reales después de verificar módulos.
+// =============================================================================
+FUNCTION_BLOCK "FB_DB100_Diagnostics_500ms"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 1.0
+   VAR
+      HeartbeatState : Bool := FALSE;
+   END_VAR
+BEGIN
+   "DB100_FlotationSCADA".PLC_CycleCounter := "DB100_FlotationSCADA".PLC_CycleCounter + 1;
+   #HeartbeatState := NOT #HeartbeatState;
+   "DB100_FlotationSCADA".PLC_Heartbeat := #HeartbeatState;
+   // Validación básica de PVs. La validez física de sensores requiere diagnóstico del módulo.
+   "DB100_FlotationSCADA".PLC_DataValid :=
+      ("DB100_FlotationSCADA".C1_PV_mm >= 0.0) AND ("DB100_FlotationSCADA".C1_PV_mm <= 500.0) AND
+      ("DB100_FlotationSCADA".C2_PV_mm >= 0.0) AND ("DB100_FlotationSCADA".C2_PV_mm <= 500.0) AND
+      ("DB100_FlotationSCADA".C3_PV_mm >= 0.0) AND ("DB100_FlotationSCADA".C3_PV_mm <= 500.0);
+   "DB100_FlotationSCADA".PLC_Fault := NOT "DB100_FlotationSCADA".PLC_DataValid;
+END_FUNCTION_BLOCK

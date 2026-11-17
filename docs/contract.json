@@ -1,0 +1,405 @@
+{
+  "app_version": "1.2.0",
+  "schema_version": "1.2.0",
+  "ws_path": "/ws",
+  "cell_ids": [
+    "C1",
+    "C2",
+    "C3"
+  ],
+  "profiles": [
+    "CONSTANT",
+    "STEP_QUINTANILLA",
+    "PULSE",
+    "SINE",
+    "NOISY_RAMP"
+  ],
+  "modes": [
+    "AUTO",
+    "MANUAL"
+  ],
+  "alarm_states": [
+    "NORMAL",
+    "HIGH",
+    "LOW",
+    "HH_CRITICAL",
+    "LL_CRITICAL"
+  ],
+  "ranges": {
+    "sp": [
+      150.0,
+      430.0
+    ],
+    "manual_rpm": [
+      0.0,
+      350.0
+    ],
+    "kp": [
+      -50.0,
+      50.0
+    ],
+    "ki": [
+      -15.0,
+      15.0
+    ],
+    "kff": [
+      0.0,
+      3.0
+    ],
+    "alarm_high": [
+      200.0,
+      445.0
+    ],
+    "alarm_low": [
+      80.0,
+      380.0
+    ],
+    "base_flow_lpm": [
+      5.0,
+      45.0
+    ],
+    "noise_std": [
+      0.0,
+      2.5
+    ],
+    "air_flow_lpm": [
+      10.0,
+      90.0
+    ]
+  },
+  "models": {
+    "SystemTelemetry": [
+      "timestamp",
+      "elapsed_sec",
+      "q_feed_lpm",
+      "q_feed_set_lpm",
+      "feed_profile",
+      "air_flow_lpm",
+      "simulation_running",
+      "plc_connected",
+      "plc_mode",
+      "plc_ip",
+      "cells",
+      "active_alarms",
+      "comm"
+    ],
+    "CellRuntimeState": [
+      "cell_id",
+      "name",
+      "pv",
+      "sp",
+      "error",
+      "mode",
+      "ff_enabled",
+      "rpm",
+      "rpm_pi",
+      "rpm_ff",
+      "q_in_lpm",
+      "q_out_lpm",
+      "q_conc_lpm",
+      "froth_depth_mm",
+      "kp",
+      "ki",
+      "kff",
+      "alarm_high",
+      "alarm_low",
+      "alarm_status",
+      "iae"
+    ],
+    "CellConfig": [
+      "cell_id",
+      "sp",
+      "mode",
+      "ff_enabled",
+      "manual_rpm",
+      "kp",
+      "ki",
+      "kff",
+      "alarm_high",
+      "alarm_low"
+    ],
+    "CellUpdateRequest": [
+      "sp",
+      "mode",
+      "ff_enabled",
+      "manual_rpm",
+      "kp",
+      "ki",
+      "kff",
+      "alarm_high",
+      "alarm_low"
+    ],
+    "AlarmEvent": [
+      "id",
+      "timestamp",
+      "cell_id",
+      "severity",
+      "type",
+      "message",
+      "value",
+      "threshold",
+      "active",
+      "acked"
+    ],
+    "FeedSimulationConfig": [
+      "base_flow_lpm",
+      "profile",
+      "noise_std",
+      "air_flow_lpm"
+    ],
+    "PLCConnectionConfig": [
+      "ip",
+      "rack",
+      "slot",
+      "db_number",
+      "mode",
+      "poll_ms"
+    ],
+    "ConfigSnapshot": [
+      "schema_version",
+      "feed",
+      "cells",
+      "plc",
+      "opcua",
+      "calibration",
+      "profiles",
+      "cell_level_max_mm",
+      "limits"
+    ],
+    "ConfigUpdateResponse": [
+      "status",
+      "applied_cells",
+      "feed_applied",
+      "warnings",
+      "config"
+    ],
+    "HealthStatus": [
+      "status",
+      "app_version",
+      "schema_version",
+      "uptime_sec",
+      "server_time",
+      "simulation_running",
+      "simulation_hz",
+      "ws_clients",
+      "historian_rows",
+      "plc_mode",
+      "plc_connected",
+      "opcua_connected",
+      "opcua_endpoint",
+      "data_source"
+    ]
+  },
+  "endpoints": [
+    {
+      "path": "/api/alarms",
+      "methods": [
+        "GET"
+      ],
+      "name": "get_alarms"
+    },
+    {
+      "path": "/api/alarms/ack",
+      "methods": [
+        "POST"
+      ],
+      "name": "acknowledge_alarms"
+    },
+    {
+      "path": "/api/cells/{cell_id}",
+      "methods": [
+        "POST"
+      ],
+      "name": "update_cell"
+    },
+    {
+      "path": "/api/config",
+      "methods": [
+        "GET"
+      ],
+      "name": "get_config"
+    },
+    {
+      "path": "/api/config",
+      "methods": [
+        "PATCH"
+      ],
+      "name": "patch_config"
+    },
+    {
+      "path": "/api/feed",
+      "methods": [
+        "POST"
+      ],
+      "name": "update_feed_simulation"
+    },
+    {
+      "path": "/api/feed/disturbance",
+      "methods": [
+        "POST"
+      ],
+      "name": "apply_instant_disturbance"
+    },
+    {
+      "path": "/api/health",
+      "methods": [
+        "GET"
+      ],
+      "name": "health"
+    },
+    {
+      "path": "/api/historian",
+      "methods": [
+        "DELETE"
+      ],
+      "name": "clear_historian"
+    },
+    {
+      "path": "/api/historian/export.csv",
+      "methods": [
+        "GET"
+      ],
+      "name": "export_historian_csv"
+    },
+    {
+      "path": "/api/historian/recent",
+      "methods": [
+        "GET"
+      ],
+      "name": "get_recent_historian"
+    },
+    {
+      "path": "/api/meta",
+      "methods": [
+        "GET"
+      ],
+      "name": "api_meta"
+    },
+    {
+      "path": "/api/opcua/browse",
+      "methods": [
+        "GET"
+      ],
+      "name": "browse_opcua"
+    },
+    {
+      "path": "/api/opcua/config",
+      "methods": [
+        "POST"
+      ],
+      "name": "update_opcua_config"
+    },
+    {
+      "path": "/api/opcua/connect",
+      "methods": [
+        "POST"
+      ],
+      "name": "connect_opcua"
+    },
+    {
+      "path": "/api/opcua/disconnect",
+      "methods": [
+        "POST"
+      ],
+      "name": "disconnect_opcua"
+    },
+    {
+      "path": "/api/opcua/status",
+      "methods": [
+        "GET"
+      ],
+      "name": "get_opcua_status"
+    },
+    {
+      "path": "/api/opcua/tags",
+      "methods": [
+        "GET"
+      ],
+      "name": "get_opcua_tags"
+    },
+    {
+      "path": "/api/opcua/test-server/start",
+      "methods": [
+        "POST"
+      ],
+      "name": "start_opcua_test_server"
+    },
+    {
+      "path": "/api/opcua/test-server/status",
+      "methods": [
+        "GET"
+      ],
+      "name": "opcua_test_server_status"
+    },
+    {
+      "path": "/api/opcua/test-server/stop",
+      "methods": [
+        "POST"
+      ],
+      "name": "stop_opcua_test_server"
+    },
+    {
+      "path": "/api/opcua/write",
+      "methods": [
+        "POST"
+      ],
+      "name": "write_opcua_tag"
+    },
+    {
+      "path": "/api/plc/config",
+      "methods": [
+        "POST"
+      ],
+      "name": "update_plc_config"
+    },
+    {
+      "path": "/api/plc/connect",
+      "methods": [
+        "POST"
+      ],
+      "name": "connect_plc"
+    },
+    {
+      "path": "/api/plc/disconnect",
+      "methods": [
+        "POST"
+      ],
+      "name": "disconnect_plc"
+    },
+    {
+      "path": "/api/plc/scl",
+      "methods": [
+        "GET"
+      ],
+      "name": "get_tia_portal_scl"
+    },
+    {
+      "path": "/api/plc/status",
+      "methods": [
+        "GET"
+      ],
+      "name": "get_plc_status"
+    },
+    {
+      "path": "/api/state",
+      "methods": [
+        "GET"
+      ],
+      "name": "get_state"
+    },
+    {
+      "path": "/api/system/action",
+      "methods": [
+        "POST"
+      ],
+      "name": "execute_system_action"
+    },
+    {
+      "path": "/ws",
+      "methods": [
+        "WEBSOCKET"
+      ],
+      "name": "websocket_endpoint"
+    }
+  ]
+}

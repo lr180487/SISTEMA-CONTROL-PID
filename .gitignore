@@ -1,0 +1,61 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Logs y temporales
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# Datos locales y bases de datos generadas
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.db-journal
+!data/.gitkeep
+
+# Certificados y claves privadas OPC UA / PLC
+data/certs/*
+!data/certs/README.md
+!data/certs/.gitkeep
+*.pem
+*.key
+*.p12
+*.pfx
+*.der
+
+# Editores e IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / frontend tooling (si se incorpora)
+node_modules/
+npm-debug.log*
